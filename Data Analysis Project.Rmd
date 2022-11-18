@@ -1,0 +1,428 @@
+---
+title: "Final_Project"
+author: "Sahil Dawani"
+date: "06/06/2021"
+output:
+  html_document: default
+  word_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+Use control+Enter to run the code chunks on PC.
+Use  command+Enter to run the code chunks on MAC.
+
+## Load Packages
+
+In this section, we install and load the necessary packages. 
+
+```{r libraries, message=FALSE, include = FALSE}
+### Install packages. If you haven't install the following package, please uncomment the line below to install it. Then, comment it back before knitting the document.
+#install.packages("ggplot2")
+
+### load libraries for use in current working session
+library('dplyr')
+library('ggplot2')
+library('class') # to run KNN
+library('ROSE') # to generate ROC
+
+```
+
+## Import Data
+
+In this section, we import the necessary data for this lab.
+
+```{r import, include=FALSE}
+### set your working directory
+# use setwd to set your working directory
+
+# you can also go to session-> set working directory -> choose directory
+# working directory is the path to the folder and not file
+
+# make sure the path of the directory is correct, i.e., where you have stored your data
+
+setwd("~/Documents/MGT 585/Data")
+### import data file
+# read the files using read.csv
+shopco <- read.csv(file = "shopco.csv")
+
+```
+
+# ShopCo Case
+
+Shopco, owner of various malls in United States, just initiated a real-time mobile message system in one of their malls, by which a short text is sent to consumers on their mobile phone right after their first purchase in the mall.
+
+You are hired as a business analyst to (1) investigate the role of real-time mobile message in the mall on consumer’s intention to keep shopping and (2) to classify consumers using sales data and (3) to further cluster consumers of high loyalty status. 
+
+The mall operator ran a field experiment on a group of 9032 consumers who visited the mall in the week of Oct 1, 2020 to understand the role of real-time mobile messages on consumers' purchase behavior. In the experiment, 9032 consumers were equally divided into two halves. The first half of consumers (4516) received a real-time mobile message right after their first purchase promising 1000 loyalty points if they buy one more time from the mall on that day (irrespective of how much they buy) while the second half (4516 consumers) continued their shopping without receiving any real-time mobile message. A consumer makes a shopping trip to a mall and can make many purchases in one shopping trip.
+
+Below are more details about the mall and its data.
+
+*consumer_id*: Each consumer has a unique consumer identifier (consumer_id) that gets assigned as soon as the consumer creates a new profile on the mobile app. Each consumer has only one consumer_id. 
+
+*age*: Age of the consumer (in years).
+
+*gender*: Gender of the consumer (male vs female).
+
+*loyalty_status*: The mall operator on the basis of past spending of the consumer assigns a loyalty status: low and high. Low is the low loyalty whereas high is the high loyalty to the mall. Shopco internally assigns loyalty status to each consumer depending upon their past purchase history.
+
+*from_second_store_sales*: The amount spent in dollars from the second store onward in the same shopping trip. This is the sales (in dollars) of all the purchases that a consumer makes after the first purchase.
+
+*realtime_message*: This shows if a consumer received a real-time mobile message or not. For the consumer who receives a real-time mobile message, realtime_message is marked one, otherwise zero.
+
+Do the following tasks and answer the questions according to the tasks' output.
+
+## Task 1: Explore and tranform your data
+
+(a) Explore the dataset using 5 functions: dim(), str(), colnames(), head() and tail(). (b) Convert any column(s) that is supposed to be treated as a factor. (c) Compute relevant summary stats for continuous and categorical variables. Use summary() and table().
+
+```{r explore}
+
+# Explore the dataset using 5 functions: dim(), str(), colnames(), head() and tail()
+
+dim(shopco)
+str(shopco)
+colnames(shopco)
+head(shopco)
+tail(shopco)
+
+# Convert any column that is supposed to be treated as a factor 
+shopco$gender <- as.factor(shopco$gender)
+shopco$loyalty_status<- as.factor(shopco$loyalty_status)
+shopco$realtime_message <- as.factor(shopco$realtime_message)
+
+# Descriptive Analysis
+summary(shopco$consumer_id)
+summary(shopco$age)
+summary(shopco$from_second_store_sales)
+
+#summary statistics for categorical variables
+table(shopco$gender)
+table(shopco$loyalty_status)
+table(shopco$realtime_message)
+
+#other statistics
+shopco %>% group_by(realtime_message) %>% summarize(mean(from_second_store_sales))
+
+
+```
+
+**Question 1**: Use the descriptive analysis above (or any other analyses necessary) to answer the following questions. No need to explain, just short answers.
+
+(a) What is the average age of consumers?
+
+(b) How much, on average, consumers spend on sales from second store onward?
+
+(c) How many consumers are female vs male?
+
+(d) How many consumers are there in each loyalty status?
+
+(f) Did consumers who received the real time message purchase more, on average, from second store onward than the ones who did not receive the message?
+
+**ADD YOUR RESPONSE HERE**
+a: The avaerage of of consumers is 31.05.
+b: Consumers spend average of 34.65 from second store onward.
+c: 6903 are Female, and 2129 are Male
+d: There are 5763 in high status, while 4516 are in low status
+f: Yes, the average sales is 36.7 who recieved the real time message and the consumers who didnt receive is 32.6 lower.
+
+
+## Task 2: Multiple Regression Analysis
+Run a full model of multiple linear regression to see what impacts sales from second store onward. Take from_second_store_sales as the response variable and age, gender, loyalty_status, realtime_message and interaction of loyalty_status and realtime_message as predictors.
+
+
+```{r linearRegression}
+
+# Run the multiple regression analysis 
+reg_sales <- lm(from_second_store_sales ~  age + gender + loyalty_status + realtime_message , data = shopco)
+
+summary(reg_sales)
+
+
+```
+
+**Question 3**: Interpret the multiple regression analysis results by answering these questions:
+
+(a) Is this a valid model? Explain why or why not.
+
+(b) Is this a good fit? Explain why or why not. 
+
+(c) Which predictors have a significant impact on sales from second store onward? Explain why.
+
+(d) According to this model, does the real time message increase the sales from second store onward? Is this impact the same for consumers with different loyalty status? Explain.
+
+
+**ADD YOUR RESPONSE HERE*
+a: Yes. p-value for F-statistics is < 0.05. therefore at least one of the coefficients are non-zero, and the model is valid. 
+
+b: No, the R square is 1.01248, it means that we can explain only 1.2% of variance in our data with this model, so its not a good fit.
+
+c: The coefficients of realtime_message and genderMale has <0.5 p value, so they have significant impact on sales while others have no significant impact on sales.
+
+d: A unit increase in the real time message influenced an increase in the sales from second store onward because the coefficient of estimate or the slope is positive i.e. 3.3700. The impact is not the same with loyalty status as with a unit increase in loyalty status will lead to a decrease in the sales from the second store since the coefficient estimate or the slope is negative i.e. -15.4805
+
+## Task 3: Classifcation
+In this task, you are asked to use the shopco data set to develop a classifier that classify consumers into loyalty classes low and high.
+First, create train and test data sets. Then, develop a logistic regression classifier and a KNN classifier.
+
+### Task 3.1: Create training and testing set
+Use 80:20 split ratio to divide the data into train and test sets. Please set seed to 1234.
+
+```{r traintest}
+# Use 80:20 split ratio to divide the data into train and test sets
+
+set.seed(1234)  # used when we want to reproduce results.
+
+smp_size <- floor(0.80 * nrow(shopco))
+
+train_ind <- sample(seq_len(nrow(shopco)), size = smp_size)
+
+train <- shopco[train_ind, ]
+test <- shopco[-train_ind, ]
+
+```
+
+### Task 3.2: Developing Logistic Regression
+Run a logistic regression analysis on age, gender and from_second_store_sales as predictors and loyalty_status as the response.
+
+```{r logisticRegression}
+
+# Logistic regression analysis age, gender and from_second_store_sales as predictors and loyalty_status as the response
+
+glmfit = glm(loyalty_status ~ age + gender + from_second_store_sales, data = train, family = binomial)
+summary(glmfit)
+
+
+```
+
+Compute the confusion matrix, accuracy, sensitivity and specificity. Use the cut-off probability of 0.45, when the reference level is high loyalty status.
+
+```{r logisticConfusion}
+
+# Compute the confusion matrix, accuracy, sensitivity and specificity
+confusionMatrix <- table(test$loyalty_status) 
+
+glmprobs = predict(glmfit, test, type = "response")
+
+glmpred = ifelse(glmprobs> 0.45,1,0)
+
+# Use table() function to produce a confusion matrix
+confusionMatrix
+# Accuracy: 
+mean(test$loyalty_status == glmpred)
+
+# True loyalty_status (positive) rate (sensitivity or recall):
+sum(test$loyalty_status == 'high' & glmpred == 'high')/sum(test$loyalty_status == 'high')
+
+# True not loyalty_status (negative) rate (specificity):
+sum(test$loyalty_status == 'low' & glmpred == 'low')/sum(test$loyalty_status == 'low')
+```
+
+Plot the ROC curve and compute the AUC.
+```{r logisticROC}
+
+## ROC curve for the logistic regression model
+roc.curve(test$loyalty_status, glmpred)
+
+
+```
+
+### Task 3.3: Developing a KNN model
+Use age, gender and from_second_store_sales to develop a KNN model to classify consumer into low and high loyalty status for different values of k. Choose k to be equal to 1, 10 and 40. Please set seed to 1234.
+
+Note that the knn() function only takes numeric variables. Make sure you make necessary transformations before using knn().
+
+## k = 1
+
+```{r knn1}
+
+set.seed(1234)  # used when we want to reproduce results.
+
+#transformation of gender column into numeric
+shopco$gender01 <- ifelse(shopco$gender == "Male", 1, 0)
+shopco$gender01 <- as.numeric(shopco$gender01)
+ 
+# other columns
+shopco$age2 <- shopco$age
+shopco$age2 <- as.numeric(shopco$age2)
+shopco$from_second_store_sales2 <- shopco$from_second_store_sales
+shopco$from_second_store_sales2 <- as.numeric(shopco$from_second_store_sales2)
+
+#training and testing data
+smp_size1 <- floor(0.80 * nrow(shopco))
+
+train_ind <- sample(seq_len(nrow(shopco)), size = smp_size1)
+
+train1 <- shopco[train_ind, ]
+test1 <- shopco[-train_ind, ]
+
+
+# knn classifier for k=1
+
+knn1 <- knn(train1[,7:9], test1[,7:9], train1$loyalty_status, k = 1)
+
+
+summary(knn1)
+
+# Confusion matrix
+table(test$loyalty_status,knn1)
+
+
+
+## accuracy
+mean(knn1==test$loyalty_status)
+
+
+# ROC curve 
+roc.curve(test$loyalty_status, knn1)
+
+
+```
+
+
+## k = 10
+
+```{r knn10}
+
+set.seed(1234)  # used when we want to reproduce results.
+
+
+# knn classifier for k=10
+knn10 <- knn(train1[,7:9], test1[,7:9], train1$loyalty_status, k = 10)
+
+
+# Confusion matrix
+table(test$loyalty_status,knn10)
+
+
+## accuracy
+mean(knn10==test$loyalty_status)
+
+
+# ROC curve 
+roc.curve(test$loyalty_status, knn10)
+
+```
+
+## k = 40
+
+```{r knn40}
+
+set.seed(1234)  # used when we want to reproduce results.
+
+# knn classifier for k=40
+knn40 <- knn(train1[,7:9], test1[,7:9], train1$loyalty_status, k = 40)
+
+
+# Confusion matrix
+table(test$loyalty_status,knn40)
+
+
+## accuracy
+mean(knn40==test$loyalty_status)
+
+
+# ROC curve 
+roc.curve(test$loyalty_status, knn40)
+
+```
+
+**Question 3** Use metrics derived from confusion matrix and ROC Curve results to answer the following questions:
+
+(a) What are the sensitivity and the specificity of the logistic regression classifier? Interpret the values.
+
+(b) What does the ROC curve and AUC for the logistic regression classifier show? Explain.
+
+(c) Which of these methods (logistic regression and knn with different k values) appear to provide the best results on this data? Use accuracy and AUC to compare. 
+
+**ADD YOUR RESPONSE HERE**
+a: The sensitivity of the classifier is 0, it means there are no true positives.
+    and the specificity is 0, it means there are no false negatives as well.
+
+b: The area under the curve is 0.508, which is around 0.5 and the classifier is not able to distinguish between the postive and negative classes.
+
+c: knn with k = 10 has the highest accuracy 61.98% and AUC 0.618. 
+
+
+## Task 4:	Clustering 
+In this task, we focus on consumers with *high* loyalty status and you are asked to use the shopco data set to cluster *high* loyalty status consumers using age and from_second_store_sales.
+
+### Task 4.1: K Means Clustering
+Run cluster analysis on age and sales on second store onwards using K-means clustering. Assume there are three clusters. Print the total cluster variation and between_SS/total_SS ratio.
+
+```{r kmeans}
+
+set.seed(1234) # used when we want to reproduce results.
+
+# Create a dataset for Consumers of the high loyalty status
+
+high_loyalty_status_customer <- subset(shopco, loyalty_status == 'high')
+
+# Run K-means clustering on age and sales on second store onwards
+
+km_shopco <- kmeans(shopco[,c("age","from_second_store_sales")], 3, nstart = 20)
+
+# Print the total cluster variation
+
+km_shopco$tot.withinss
+
+# Print the between_SS / total_SS
+km_shopco$betweenss/km_shopco$totss
+
+
+```
+
+
+### Task 4.2: Hierarchical Clustering
+Use hierarchical clustering with complete linkage to cluster the consumers of high loyalty status. Use age and sales on second store onwards as the predictors. 
+
+Cut the dendrogram at a height that results in *TWO* distinct clusters. No need to plot the dendrogram.
+
+```{r Hierarchical}
+
+# Apply hierarchical clustering
+
+# compute distance matrix for X values
+d <- dist(as.matrix(high_loyalty_status_customer[,c("age","from_second_store_sales")]))
+
+hc <- hclust(d, method ="complete")
+# To determine the cluster labels for each observation associated with a given cut of the dendrogram, we can use the cutree() function
+ct = cutree (hc , 2)
+
+for( k in 1:2 ){
+  print(k)
+  print( summary(high_loyalty_status_customer[ct == k,c("age","from_second_store_sales")] ))}
+
+```
+
+
+**Question 4**: Use the k-mean clustering and hierarchical clustering results to answer the following questions:
+
+(a) Profile the clusters developed by k-means clustering by writing a relevant name and a distinct feature for each cluster.
+
+(b) How good is the generated k-means clustering? Explain.
+
+(c) Profile the clusters developed by hierarchical clustering by writing a relevant name and a distinct feature for each cluster.
+
+(d) Can we use the receipt of real time message as a distinct feature to profile the clusters created by hierarchical clustering? Explain why or why not.
+
+**ADD YOUR RESPONSE HERE**
+*Cluster High age and High from store sales*: Consumers with high average age and high average of purchases customer makes from the second store onward.
+
+*Cluster Low Age and Low From store sales*:  Consumers with low average age and low average number of purchases consumer makes from the second store onward.
+b:  The BSS/TSS ratio is the measure of the total variance in the data set that is explained by the clustering. The ratio is 80.86%, indicating a good fit. 
+
+c: *Cluster High Users*: Consumers with high age, and high average amount spent in dollars from the second store onward in the same shopping trip.
+
+*Cluster Low Users*: Consumers with low age, and low average amount spent in dollars from the second store onward in the same shopping trip.
+
